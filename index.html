@@ -299,6 +299,29 @@
     margin-top:2px;
   }
 
+  .count-breakdown{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin:0 0 18px;
+  }
+  .unit-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-dim);
+    background:var(--surface);
+    border-radius:100px;
+    padding:5px 12px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05);
+  }
+  .unit-chip b{
+    color:var(--ink);
+    font-weight:700;
+  }
+
   .board-list{
     display:flex;
     flex-direction:column;
@@ -358,6 +381,10 @@
     border-radius:100px;
     padding:3px 10px;
     flex:0 0 auto;
+  }
+  .board-row-region{
+    color:var(--ink-dim);
+    background:var(--surface-2);
   }
   .age-pill{
     font-size:11px;
@@ -471,12 +498,19 @@
       </div>
     </div>
 
+    <div class="count-breakdown" id="countBreakdown"></div>
+
     <div class="board-list" id="boardList">
       <div class="board-empty-state" id="boardEmpty">טוען נתונים...</div>
     </div>
   </section>
 
   <form id="faultForm">
+    <div class="field">
+      <label for="region">מרחב <span class="req">*</span></label>
+      <input type="text" id="region" name="region" placeholder="לדוגמה: מרחב ירושלים" required>
+    </div>
+
     <div class="field">
       <label for="unit">יחידה <span class="req">*</span></label>
       <input type="text" id="unit" name="unit" placeholder="לדוגמה: יחידה 3" required>
@@ -520,6 +554,7 @@
   const submitBtn = document.getElementById('submitBtn');
   const entryDateInput = document.getElementById('entryDate');
   const countNum = document.getElementById('countNum');
+  const countBreakdown = document.getElementById('countBreakdown');
   const boardList = document.getElementById('boardList');
   const boardEmpty = document.getElementById('boardEmpty');
   const refreshBtn = document.getElementById('refreshBtn');
@@ -574,7 +609,8 @@
 
   function daysAgo(dateStr){
     if (!dateStr) return null;
-    const then = new Date(dateStr + 'T00:00:00');
+    const then = new Date(dateStr.slice(0, 10) + 'T00:00:00');
+    if (isNaN(then.getTime())) return null;
     const now = new Date();
     now.setHours(0,0,0,0);
     const diff = Math.round((now - then) / 86400000);
@@ -593,6 +629,17 @@
   function renderBoard(items){
     const active = items.filter(item => !item.exitDate);
     countNum.textContent = active.length;
+
+    const counts = {};
+    active.forEach(item => {
+      const u = (item.unit || '').trim() || 'ללא יחידה';
+      counts[u] = (counts[u] || 0) + 1;
+    });
+    const breakdown = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    countBreakdown.innerHTML = breakdown
+      .map(([u, c]) => '<span class="unit-chip">' + escapeHtml(u) + ' <b>' + c + '</b></span>')
+      .join('');
+
     boardList.innerHTML = '';
 
     if (!active.length){
@@ -608,7 +655,16 @@
 
     active.slice().reverse().forEach(item => {
       const d = daysAgo(item.entryDate);
-      let ageClass = 'age-fresh', ageLabel = d === 0 ? 'היום' : (d === 1 ? 'יום 1' : d + ' ימים');
+      let ageClass = 'age-fresh', ageLabel = '';
+      if (d === null){
+        ageLabel = '';
+      } else if (d === 0){
+        ageLabel = 'היום';
+      } else if (d === 1){
+        ageLabel = 'יום 1';
+      } else {
+        ageLabel = d + ' ימים';
+      }
       if (d !== null){
         if (d >= 7) ageClass = 'age-long';
         else if (d >= 3) ageClass = 'age-mid';
@@ -621,8 +677,9 @@
           '<div class="board-row-plate">' +
             '<span class="plate-num">' + escapeHtml(item.plate) + '</span>' +
             '<span class="board-row-unit">' + escapeHtml(item.unit) + '</span>' +
+            (item.region ? '<span class="board-row-unit board-row-region">' + escapeHtml(item.region) + '</span>' : '') +
           '</div>' +
-          '<span class="age-pill ' + ageClass + '">' + ageLabel + '</span>' +
+          (ageLabel ? '<span class="age-pill ' + ageClass + '">' + ageLabel + '</span>' : '') +
         '</div>' +
         '<div class="board-row-fault">' + escapeHtml(item.fault) + '</div>' +
         '<div class="board-row-meta">' +
@@ -739,6 +796,7 @@
       fault: document.getElementById('fault').value.trim(),
       entryDate: entryDateInput.value,
       unit: document.getElementById('unit').value.trim(),
+      region: document.getElementById('region').value.trim(),
       reportedBy: document.getElementById('reportedBy').value.trim()
     };
 
