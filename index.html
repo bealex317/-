@@ -266,68 +266,121 @@
 
   .count-row{
     display:flex;
-    align-items:baseline;
-    gap:10px;
-    margin:18px 0 16px;
+    align-items:center;
+    gap:14px;
+    margin:18px 0 18px;
+  }
+  .count-chip{
+    width:64px;
+    height:64px;
+    border-radius:20px;
+    background:var(--primary);
+    color:var(--primary-ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 auto;
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
   }
   .count-num{
-    font-size:42px;
+    font-size:28px;
     font-weight:700;
-    color:var(--primary);
     line-height:1;
     letter-spacing:-.01em;
   }
   .count-label{
-    font-size:13.5px;
+    font-size:14px;
+    color:var(--ink);
+    font-weight:600;
+  }
+  .count-sub{
+    font-size:12px;
     color:var(--ink-dim);
-    font-weight:500;
+    margin-top:2px;
   }
 
   .board-list{
     display:flex;
     flex-direction:column;
-    gap:8px;
-    max-height:260px;
+    gap:10px;
+    max-height:320px;
     overflow-y:auto;
+    padding-inline-end:2px;
   }
-  .board-empty{
-    font-size:13.5px;
+  .board-empty-state{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:32px 8px 20px;
     color:var(--ink-dim);
-    padding:14px 4px;
+    font-size:13.5px;
+    text-align:center;
   }
+  .board-empty-state svg{opacity:.55;}
+
   .board-row{
     background:var(--surface);
     border-radius:16px;
-    padding:14px 14px;
+    padding:14px 16px;
     box-shadow:0 1px 2px rgba(0,0,0,.06);
+    border-inline-start:4px solid var(--outline);
+    transition:box-shadow .15s ease;
   }
+  .board-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.1);}
+  .board-row.age-fresh{border-inline-start-color:var(--ok);}
+  .board-row.age-mid{border-inline-start-color:#c9a227;}
+  .board-row.age-long{border-inline-start-color:var(--fault);}
+
   .board-row-top{
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     justify-content:space-between;
+    gap:10px;
+  }
+  .board-row-plate{
+    display:flex;
+    align-items:center;
     gap:8px;
-    font-size:14.5px;
+    flex-wrap:wrap;
+  }
+  .plate-num{
+    font-size:15px;
     font-weight:700;
+    letter-spacing:.01em;
   }
   .board-row-unit{
-    font-size:12px;
+    font-size:11.5px;
     font-weight:600;
     color:var(--on-primary-container);
     background:var(--primary-container);
     border-radius:100px;
-    padding:3px 11px;
+    padding:3px 10px;
     flex:0 0 auto;
   }
+  .age-pill{
+    font-size:11px;
+    font-weight:700;
+    border-radius:100px;
+    padding:4px 10px;
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .age-pill.age-fresh{background:var(--ok-container); color:var(--ok);}
+  .age-pill.age-mid{background:color-mix(in srgb, #c9a227 22%, var(--surface-2)); color:#8a6d13;}
+  .age-pill.age-long{background:var(--fault-container); color:var(--fault);}
+
   .board-row-fault{
-    font-size:13px;
-    color:var(--ink-dim);
-    margin-top:5px;
-    line-height:1.45;
+    font-size:13.5px;
+    color:var(--ink);
+    margin-top:8px;
+    line-height:1.5;
   }
   .board-row-meta{
     font-size:11.5px;
     color:var(--ink-dim);
-    margin-top:7px;
+    margin-top:6px;
     opacity:.9;
   }
 
@@ -411,12 +464,15 @@
     </div>
 
     <div class="count-row">
-      <span class="count-num" id="countNum">–</span>
-      <span class="count-label">כלי רכב מדווחים</span>
+      <div class="count-chip"><span class="count-num" id="countNum">–</span></div>
+      <div>
+        <div class="count-label">כלי רכב מדווחים</div>
+        <div class="count-sub">כרגע במוסך</div>
+      </div>
     </div>
 
     <div class="board-list" id="boardList">
-      <div class="board-empty" id="boardEmpty">טוען נתונים...</div>
+      <div class="board-empty-state" id="boardEmpty">טוען נתונים...</div>
     </div>
   </section>
 
@@ -516,32 +572,61 @@
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function daysAgo(dateStr){
+    if (!dateStr) return null;
+    const then = new Date(dateStr + 'T00:00:00');
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    const diff = Math.round((now - then) / 86400000);
+    return diff;
+  }
+
+  function formatDate(dateStr){
+    if (!dateStr) return '';
+    const datePart = dateStr.slice(0, 10);
+    const parts = datePart.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts;
+    return d + '/' + m + '/' + y.slice(-2);
+  }
+
   function renderBoard(items){
     const active = items.filter(item => !item.exitDate);
     countNum.textContent = active.length;
     boardList.innerHTML = '';
 
     if (!active.length){
-      const empty = document.createElement('div');
-      empty.className = 'board-empty';
-      empty.textContent = 'אין כרגע כלי רכב מדווחים במוסך.';
-      boardList.appendChild(empty);
+      boardList.innerHTML =
+        '<div class="board-empty-state">' +
+          '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M5 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0M15 17a2 2 0 1 0 4 0 2 2 0 1 0-4 0M5 17V9.5a1 1 0 0 1 .3-.7l2.2-2.2A2 2 0 0 1 8.9 6h6.2a2 2 0 0 1 1.4.6l2.2 2.2a1 1 0 0 1 .3.7V17M5 12h14"/></svg>' +
+          '<span>אין כרגע כלי רכב מדווחים במוסך</span>' +
+        '</div>';
       return;
     }
 
     const todayStr = new Date().toISOString().slice(0,10);
 
     active.slice().reverse().forEach(item => {
+      const d = daysAgo(item.entryDate);
+      let ageClass = 'age-fresh', ageLabel = d === 0 ? 'היום' : (d === 1 ? 'יום 1' : d + ' ימים');
+      if (d !== null){
+        if (d >= 7) ageClass = 'age-long';
+        else if (d >= 3) ageClass = 'age-mid';
+      }
+
       const row = document.createElement('div');
-      row.className = 'board-row';
+      row.className = 'board-row ' + ageClass;
       row.innerHTML =
         '<div class="board-row-top">' +
-          '<span>' + escapeHtml(item.plate) + '</span>' +
-          '<span class="board-row-unit">' + escapeHtml(item.unit) + '</span>' +
+          '<div class="board-row-plate">' +
+            '<span class="plate-num">' + escapeHtml(item.plate) + '</span>' +
+            '<span class="board-row-unit">' + escapeHtml(item.unit) + '</span>' +
+          '</div>' +
+          '<span class="age-pill ' + ageClass + '">' + ageLabel + '</span>' +
         '</div>' +
         '<div class="board-row-fault">' + escapeHtml(item.fault) + '</div>' +
         '<div class="board-row-meta">' +
-          escapeHtml(item.entryDate) + (item.reportedBy ? ' · דווח ע"י ' + escapeHtml(item.reportedBy) : '') +
+          'נכנס ' + escapeHtml(formatDate(item.entryDate)) + (item.reportedBy ? ' · דווח ע"י ' + escapeHtml(item.reportedBy) : '') +
         '</div>' +
         '<div class="board-row-actions">' +
           '<button type="button" class="exit-btn" data-row="' + item.row + '">סימון יציאה מהמוסך</button>' +
