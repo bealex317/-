@@ -471,6 +471,14 @@
   // ברירת מחדל: תאריך היום
   entryDateInput.value = new Date().toISOString().slice(0,10);
 
+  // מזהה ייחודי לשליחה הנוכחית — נשמר בין ניסיונות חוזרים של אותו דיווח
+  // כדי שרענון/שליחה כפולה לא ייצרו שורה כפולה בגיליון
+  let pendingSubmissionId = null;
+  function makeId(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  }
+
   function showStatus(msg, kind){
     statusEl.textContent = msg;
     statusEl.className = 'status show ' + kind;
@@ -483,7 +491,7 @@
       const timeout = setTimeout(() => {
         cleanup();
         reject(new Error('timeout'));
-      }, 12000);
+      }, 20000);
 
       function cleanup(){
         clearTimeout(timeout);
@@ -635,8 +643,13 @@
       return;
     }
 
+    if (!pendingSubmissionId){
+      pendingSubmissionId = makeId();
+    }
+
     const payload = {
       action: 'submit',
+      submissionId: pendingSubmissionId,
       plate: document.getElementById('plate').value.trim(),
       fault: document.getElementById('fault').value.trim(),
       entryDate: entryDateInput.value,
@@ -652,6 +665,7 @@
       const result = await jsonp(APPS_SCRIPT_URL, payload);
       if (result && result.ok !== false){
         showStatus('הדיווח נשמר בהצלחה.', 'ok');
+        pendingSubmissionId = null;
         form.reset();
         entryDateInput.value = new Date().toISOString().slice(0,10);
         loadBoard();
@@ -659,7 +673,7 @@
         showStatus('שגיאה בשמירת הדיווח: ' + (result && result.error ? result.error : 'לא ידוע'), 'err');
       }
     } catch (err) {
-      showStatus('לא ניתן היה להתחבר לגיליון. בדקו חיבור אינטרנט ונסו שוב.', 'err');
+      showStatus('לא ניתן היה להתחבר לגיליון. הדיווח נשמר אוטומטית עם ניסיון חוזר — אפשר ללחוץ "שלח דיווח" שוב בביטחון, לא תיווצר כפילות.', 'err');
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = 'שלח דיווח';
